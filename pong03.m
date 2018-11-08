@@ -42,8 +42,6 @@ classdef pong03 < handle
         %layout/structure
         BALL_RADIUS = 1.5; %radius to calculate bouncing
         WALL_WIDTH = 3;
-        FIGURE_WIDTH = 1920; %pixels
-        FIGURE_HEIGHT = 1080;
         PLOT_W = 150; %width in plot units. this will be main units for program
         PLOT_H = 100; %height
         GOAL_SIZE = 50;
@@ -120,10 +118,9 @@ classdef pong03 < handle
         %plots ball, walls, paddles
         %called once at start of program
         function createFigure(obj)
-            %ScreenSize is a four-element vector: [left, bottom, width,%height]
-            scrsz = get(0,'ScreenSize');
-            obj.fig = figure('Position',[(scrsz(3)-obj.FIGURE_WIDTH)/2 ...
-                (scrsz(4)-obj.FIGURE_HEIGHT)/2 obj.FIGURE_WIDTH, obj.FIGURE_HEIGHT]);
+            %create a figure with full screen size
+            obj.fig = figure('units','normalized','outerposition',[0 0 1 1], ...
+                'MenuBar','None','NumberTitle','off');
             %register keydown and keyup listeners
             set(obj.fig,'KeyPressFcn',@obj.keyDown, 'KeyReleaseFcn', @obj.keyUp);
              %obj.figure can't be resized
@@ -515,7 +512,7 @@ classdef pong03 < handle
                 imb = imerode(imb,ones(3,3));
                 %median value of Ys for objects above the ground
                 iLeft = find(imb(:,1:round(0.5*cols)));
-                iRight = find(imb(:,round(0.5*cols):cols));
+                iRight = find(imb(:,round(0.5*cols)+1:cols));
                 if (not(isempty(iLeft)) && not(isempty(iRight)))
                     mYLeft = median(Yr(iLeft));
                     mYRight = median(Yr(iRight + round(0.5*cols*rows)));
