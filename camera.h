@@ -26,10 +26,10 @@ int capture_color(Mat imcolor);
 float floor_detection(Mat imdepth, Mat rotation_matrix, Mat floor_vector);
 
 //track the players in the depth image
-void point_tracker(float* pLoc, Mat imdepth, Mat rotation_matrix, float floor_depth);
+void point_tracker(float* pLoc, Mat imdepth, Mat rotation_matrix, float floor_depth, float* player_loc);
 
 //locate the center of an object in a binary image using mean shift
-void mean_shift(Scalar& x, Scalar& y, Mat mask, float sigma, float conv_thr);
+void mean_shift(float& xm, float& ym, Mat mask, float sigma, float conv_thr);
 
 //compute the coordinates of the 3D points from a depth image
 void get_3Dpoints(Mat imdepth, Mat M);

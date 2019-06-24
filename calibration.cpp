@@ -174,9 +174,9 @@ void scale_players(float* scale, Point2f* pfloor, floor_parameters fp, camera_pa
   float yl2 = rx*Dleft[1].x + ry*Dleft[1].y + rz*Dleft[1].z;
   float yr1 = rx*Dright[0].x + ry*Dright[0].y + rz*Dright[0].z;
   float yr2 = rx*Dright[1].x + ry*Dright[1].y + rz*Dright[1].z;
-  scale[0] = g.plot_units[0] / (yl2 - yl1);
+  scale[0] = g.plot_units[1] / (yl2 - yl1);
   scale[1] = -scale[0] * yl1;
-  scale[2] = g.plot_units[0] / (yr2 - yr1);
+  scale[2] = g.plot_units[1] / (yr2 - yr1);
   scale[3] = -scale[2] * yr1;
 }
 
@@ -215,6 +215,61 @@ void mouseHandler(int event, int x, int y, int flags, void* ptr){
   Point2f* p = (Point2f*)ptr;
   p->x = (float)x;
   p->y = (float)y;
+}
+
+//============================================================================================
+//save the calibration data to a file
+void write_calibration_data(FILE* fid, floor_parameters fp, float* scale, Point2f* pfloor){
+  Mat fv, R;
+  fp.floor_vector.copyTo(fv);
+  fp.rotation_matrix.copyTo(R);
+
+  fprintf(fid, "Floor parameters:\n");
+  fprintf(fid, "\tfloor depth = %0.2f mm\n", fp.floor_depth);
+  fprintf(fid, "\tfloor vector = (%0.4f, %0.4f, %0.4f)\n",
+    fv.at<float>(0,0), fv.at<float>(1,0), fv.at<float>(2,0));
+  fprintf(fid, "\trotation matrix =\n");
+  fprintf(fid, "\t(%0.4f, %0.4f, %0.4f\n", R.at<float>(0,0), R.at<float>(0,1), R.at<float>(0,2));
+  fprintf(fid, "\t %0.4f, %0.4f, %0.4f\n", R.at<float>(1,0), R.at<float>(1,1), R.at<float>(1,2));
+  fprintf(fid, "\t %0.4f, %0.4f, %0.4f)\n", R.at<float>(2,0), R.at<float>(2,1), R.at<float>(2,2));
+
+  fprintf(fid, "\nGame area:\n");
+  fprintf(fid, "\tcorners = {(%0.0f, %0.0f), (%0.0f, %0.0f), (%0.0f, %0.0f), (%0.0f, %0.0f)}\n",
+    pfloor[0].x, pfloor[0].y, pfloor[1].x, pfloor[1].y, pfloor[2].x, pfloor[2].y, pfloor[3].x, pfloor[3].y);
+  fprintf(fid, "\n\tplayer 1\n");
+  fprintf(fid, "\t\tscale = %0.4f, offset = %0.2f\n", scale[0], scale[1]);
+  fprintf(fid, "\n\tplayer 2\n");
+  fprintf(fid, "\t\tscale = %0.4f, offset = %0.2f\n", scale[2], scale[3]);
+}
+
+//=======================================================================
+//load the calibration data from the calibration file
+void read_calibration_data(FILE* fid, floor_parameters& fp, float* scale){
+  float fd, fv[3], R[3][3];
+  fscanf(fid, "Floor parameters:\n");
+  fscanf(fid, "\tfloor depth = %f mm\n", &fd);
+  fscanf(fid, "\tfloor vector = (%f, %f, %f)\n", &fv[0], &fv[1], &fv[2]);
+  fscanf(fid, "\trotation matrix =\n");
+  fscanf(fid, "\t(%f, %f, %f\n", &R[0][0], &R[0][1], &R[0][2]);
+  fscanf(fid, "\t %f, %f, %f\n", &R[1][0], &R[1][1], &R[1][2]);
+  fscanf(fid, "\t %f, %f, %f)\n", &R[2][0], &R[2][1], &R[2][2]);
+
+  fp.floor_depth = fd;
+  for(int i=0; i<3; i++){
+    fp.floor_vector.at<float>(i,0) = fv[i];
+    for(int j=0; j<3; j++){
+      fp.rotation_matrix.at<float>(i,j) = R[i][j];
+    }
+  }
+
+  //read the scale and offset of the players
+  //to convert their position in mm to plot units
+  fscanf(fid, "\nGame area:\n");
+  fscanf(fid, "\tcorners = {(%*f, %*f), (%*f, %*f), (%*f, %*f), (%*f, %*f)}\n");
+  fscanf(fid, "\n\tplayer 1\n");
+  fscanf(fid, "\t\tscale = %f, offset = %f\n", &scale[0], &scale[1]);
+  fscanf(fid, "\n\tplayer 2\n");
+  fscanf(fid, "\t\tscale = %f, offset = %f\n", &scale[2], &scale[3]);
 }
 
 

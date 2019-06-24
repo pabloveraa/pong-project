@@ -38,10 +38,7 @@ void draw_court(Mat fig, bool set_background, figure_parameters p);
 //draw the paddles and the ball
 void draw_objects(Mat fig, float* paddle_loc, float* ball_loc, figure_parameters p, game_parameters g);
 
-//clear the paddles and ball from the figure of the game
-void clear_objects(Mat fig, float* paddle_loc, float* ball_loc, figure_parameters p, game_parameters g);
-
-//convert Matlab plot units to Opencv screen point location
+//convert figure plot units to Opencv screen point location
 Point cnvPix(float pUnitW, float pUnitH);
 
 #endif

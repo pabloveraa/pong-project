@@ -42,6 +42,11 @@ Point3f floor_point(Point2f pfloor, floor_parameters fp, camera_parameters cam);
 //function to handle mouse clicks
 void mouseHandler(int event, int x, int y, int flags, void* ptr);
 
+//save the calibration data to a file
+void write_calibration_data(FILE* fid, floor_parameters fp, float* scale, Point2f* pfloor);
+
+//load the calibration data from the calibration file
+void read_calibration_data(FILE* fid, floor_parameters& fp, float* scale);
 
 
 #endif

@@ -14,10 +14,8 @@ struct game_parameters{
   float thr_pad = 5;
   float min_ball_speed = 2;
   float max_ball_speed = 10;
-  float ball_acceleration = 0.02;
-  float bfactor = 1.1;
-  float pfactor = 1.1;
-  float yfactor = 0.1;
+  float ball_acceleration[2] = {0.1, 0.02};
+  float ball_random = 0.05;
   float goal_buffer = 5;
 };
 

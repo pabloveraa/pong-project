@@ -15,11 +15,12 @@ int capture_depth(Mat imdepth){
   int capture = 0;
   unsigned short* datadepth;
   unsigned int timestamp;
+
   if( freenect_sync_get_depth((void**)(&datadepth), &timestamp, 0, FREENECT_DEPTH_MM)==0 ){
     //copy  the captured depth data to an opencv image
     for(int v=0; v<imdepth.rows; v++){
       for(int u=0; u<imdepth.cols; u++){
-        int ind = 4*v*imdepth.cols + 2*u;
+        int ind = (4*n-1) - (4*v*imdepth.cols + 2*u);
         imdepth.at<float>(v,u) = (float)datadepth[ind];
       }
     }
@@ -32,11 +33,21 @@ int capture_depth(Mat imdepth){
 //capture a color image with the kinect
 int capture_color(Mat imcolor){
   int capture = 0;
-  char* datacolor;
+  unsigned char* datacolor;
   unsigned int timestamp;
+  Vec3b color;
   if( freenect_sync_get_video((void**)(&datacolor), &timestamp, 0, FREENECT_VIDEO_RGB)==0 ){
     //copy  the captured color data to an opencv image
-    memcpy(imcolor.data, datacolor, sizeof(char)*imcolor.cols*imcolor.rows*3);
+    int n = imcolor.cols * imcolor.rows;
+    for(int v=0; v<imcolor.rows; v++){
+      for(int u=0; u<imcolor.cols; u++){
+        int ind = 3*(n - 1 - v*imcolor.cols - u);
+        color.val[0] = datacolor[ind+2];
+        color.val[1] = datacolor[ind+1];
+        color.val[2] = datacolor[ind];
+        imcolor.at<Vec3b>(v,u) = color;
+      }
+    }
     capture = 1;
   }
   return capture;
@@ -117,9 +128,9 @@ float floor_detection(Mat imdepth, Mat rotation_matrix, Mat floor_vector){
   return floor_depth;
 }
 
-//=======================================================================
+//======================================================================================
 //track the players in the depth image
-void point_tracker(float* pLoc, Mat imdepth, Mat rotation_matrix, float floor_depth){
+void point_tracker(float* pLoc, Mat imdepth, Mat rotation_matrix, float floor_depth, float* player_loc){
   //reduce the image size to speed up this process
   int cols = (int)(0.5*(float)imdepth.cols);
   int rows = (int)(0.5*(float)imdepth.rows);
@@ -140,37 +151,60 @@ void point_tracker(float* pLoc, Mat imdepth, Mat rotation_matrix, float floor_de
   Mat imb = (Zr > 0.0) & (Zr <= max_depth);
   erode(imb, imb, Mat(), Point(-1,-1), 2);
 
-//  imshow("binary image",imb);
-//  waitKey(1);
-
-  //find the mean values of the blobs at each side of the image
+  //find the blobs at each side of the image
   Mat Um(img_size, CV_32F),  Vm(img_size, CV_32F);
   mesh_grid(Um, Vm);
   Mat maskLeft = (imb > 0) & (Um < (cols/2));
   Mat maskRight = (imb > 0) & (Um > (cols/2));
-  Scalar xLeft = mean(Um, maskLeft),  yLeft = mean(Vm, maskLeft);
-  Scalar xRight = mean(Um, maskRight),  yRight = mean(Vm, maskRight);
 
-  //if the players were detected, refine their locations using mean shift algorithm
-  if(xLeft.val[0] > 0.0  &&  xRight.val[0] > 0.0){
-    float sigma = 30.0;  //bandwidth used for the mean shift
-    float conv_thr = 1.0;  //threshold to determine convergence
-    mean_shift(xLeft, yLeft, maskLeft, sigma, conv_thr);
-    mean_shift(xRight, yRight, maskRight, sigma, conv_thr);
-    pLoc[0] = Yr.at<float>((int)yLeft.val[0], (int)xLeft.val[0]);
-    pLoc[1] = Yr.at<float>((int)yRight.val[0], (int)xRight.val[0]);
+  //if the location of the players has not been assigned in
+  //previous frames, use the means of the blobs
+  Scalar xm, ym;
+  if( player_loc[0]==0.0 ){
+    xm = mean(Um, maskLeft);
+    ym = mean(Vm, maskLeft);
+    player_loc[0] = xm.val[0];
+    player_loc[1] = ym.val[0];
   }
-  else{ pLoc[0] = 0.0;  pLoc[1] = 0.0; }
+  if( player_loc[2]==0.0 ){
+    xm = mean(Um, maskRight);
+    ym = mean(Vm, maskRight);
+    player_loc[2] = xm.val[0];
+    player_loc[3] = ym.val[0];
+  }
+
+  //refine the location of the players using the mean shift algorithm
+  //and compute  their vertical locations in millimeters
+  float sigma = 30.0;  //bandwidth used for the mean shift
+  float conv_thr = 1.0;  //threshold to determine convergence
+  pLoc[0] = 0.0;
+  pLoc[1] = 0.0;
+  if( player_loc[0]>0.0 ){
+    mean_shift(player_loc[0], player_loc[1], maskLeft, sigma, conv_thr);
+    pLoc[0] = Yr.at<float>((int)player_loc[1], (int)player_loc[0]);
+  }
+  if( player_loc[2]>0.0 ){
+    mean_shift(player_loc[2], player_loc[3], maskRight, sigma, conv_thr);
+    pLoc[1] = Yr.at<float>((int)player_loc[3], (int)player_loc[2]);
+  }
+
+  Mat imc(imb.size(), CV_8UC3);
+  cvtColor(imb, imc, CV_GRAY2RGB);
+  circle(imc, Point((int)player_loc[0],(int)player_loc[1]), 5, Scalar(0,0,128), -1);
+  circle(imc, Point((int)player_loc[2],(int)player_loc[3]), 5, Scalar(0,0,128), -1);
+  namedWindow("players", WINDOW_AUTOSIZE);
+  moveWindow("players", 550, 300);
+  imshow("players", imc);
+  waitKey(1);
 }
 
 //================================================================
 //locate the center of an object in a binary image using mean shift
-void mean_shift(Scalar& x, Scalar& y, Mat mask, float sigma, float conv_thr){
+void mean_shift(float& xm, float& ym, Mat mask, float sigma, float conv_thr){
   int cols = mask.cols,  rows = mask.rows;
   float dif = 1000.0;
   while( dif > conv_thr ){
     //set the search boudaries
-    float xm = x.val[0],  ym = y.val[0];
     int x1 = (int)(xm-3*sigma),  x2 = (int)(xm+3*sigma);
     int y1 = (int)(ym-3*sigma),  y2 = (int)(ym+3*sigma);
     x1 = (x1 > 0)? x1 : 0;
@@ -198,8 +232,8 @@ void mean_shift(Scalar& x, Scalar& y, Mat mask, float sigma, float conv_thr){
       float dx = sumX/sumG - xm;
       float dy = sumY/sumG - ym;
       dif = sqrt( pow(dx,2.0) + pow(dy,2.0) );
-      x.val[0] += dx;
-      y.val[0] += dy;
+      xm += dx;
+      ym += dy;
     }
     else{ dif = 0; }
   }

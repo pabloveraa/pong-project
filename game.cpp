@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <iostream>
 #include <math.h>
 #include "game.h"
 
@@ -95,75 +96,60 @@ void move_ball(float* ball_loc, float* ball_speed, float* paddle_loc, game_param
   float plotH = g.plot_units[1];
   float goalB = 0.5*(plotH - g.goal_size);
   float goalT = 0.5*(plotH + g.goal_size);
-  //estimated value of the vertical ball location
+
+  //estimated values of the vertical ball location
   //when it hit the right or left walls or one pallet
-  float estY;
+  float mb = ball_speed[1] / ball_speed[0];
+  float wYL = ball_loc[1] - ball_loc[0] * mb;
+  float wYR = ball_loc[1] + (plotW - ball_loc[0]) * mb;
+  float pY1L = ball_loc[1] + (p1L - ball_loc[0]) * mb;
+  float pY1R = ball_loc[1] + (p1R - ball_loc[0]) * mb;
+  float pY2L = ball_loc[1] + (p2L - ball_loc[0]) * mb;
+  float pY2R = ball_loc[1] + (p2R - ball_loc[0]) * mb;
 
-  //hit test right wall
-  if( newX > (plotW - g.ball_radius) ){
-    estY = (plotW-ball_loc[0]) * (newY-ball_loc[1])/(newX-ball_loc[0]) + ball_loc[1];
-    if( estY < (goalB + g.ball_radius) || estY > (goalT - g.ball_radius) ){
-      //hit right wall
-      ball_speed[0] = -ball_speed[0];
-      bounce(ball_speed, g);
-    }
+  float br = g.ball_radius;
+
+  //hit right wall
+  if( (newX > (plotW-br)) && ((wYR < (goalB+br)) || (wYR > (goalT-br))) ){
+    ball_speed[0] = -ball_speed[0];
+    bounce(ball_speed, g);
   }
-
-  //hit test left wall
-  else if( newX < g.ball_radius ){
-    estY = -ball_loc[0] * (newY-ball_loc[1])/(newX-ball_loc[0]) + ball_loc[1];
-    if( estY < (goalB + g.ball_radius) || estY > (goalT - g.ball_radius) ){
-      //hit left wall
-      ball_speed[0] = -ball_speed[0];
-      bounce(ball_speed, g);
-    }
+  //hit left wall
+  else if( (newX < br) && ((wYL < (goalB+br)) || (wYL > (goalT-br))) ){
+    ball_speed[0] = -ball_speed[0];
+    bounce(ball_speed, g);
   }
-
-  //hit test top wall
-  if( newY > (plotH - g.ball_radius) ){
-    //hit top wall
+  //hit top wall
+  else if( (newY > plotH) && (ball_loc[0] >= 0) && (ball_loc[0] <= plotW) ){
+    ball_speed[1] = -ball_speed[1];
+    bounce(ball_speed, g);
+ }
+  //hit bottom wall
+  else if( (newY < 0) && (ball_loc[0] >= 0) && (ball_loc[0] <= plotW) ){
     ball_speed[1] = -ball_speed[1];
     bounce(ball_speed, g);
   }
-
-  //hit test bottom wall
-  else if( newY < g.ball_radius ){
-    //hit bottom wall
-    ball_speed[1] = -ball_speed[1];
+  //hit paddle 1 from left
+  else if( (ball_loc[0] < p1L) && (newX >= p1L) && (pY1L < (p1T+br)) && (pY1L > (p1B-br)) ){
+    ball_speed[0] = -ball_speed[0];
     bounce(ball_speed, g);
   }
-
-  //hit test paddle 1
-  estY = (paddle_loc[0]-ball_loc[0]) * (newY-ball_loc[1])/(newX-ball_loc[0]) + ball_loc[1];
-  if( estY > (p1B - g.ball_radius) && estY < (p1T + g.ball_radius) ){
-    //hit test paddle 1 from right
-    if( ball_loc[0] > (p1R + g.ball_radius) && newX <= (p1R + g.ball_radius) ){
-      ball_speed[0] = -ball_speed[0] * g.pfactor;
-      bounce(ball_speed, g);
-    }
-    //hit test paddle 1 from left
-    else if( ball_loc[0] < (p1L - g.ball_radius) && newX >= (p1L - g.ball_radius) ){
-      ball_speed[0] = -ball_speed[0];
-      bounce(ball_speed, g);
-    }
+  //hit paddle 1 from right
+  else if( (ball_loc[0] > p1R) && (newX <= p1R) && (pY1R < (p1T+br)) && (pY1R > (p1B-br)) ){
+    ball_speed[0] = -ball_speed[0];
+    bounce(ball_speed, g);
   }
-
-  //hit test paddle 2
-  estY = (paddle_loc[2]-ball_loc[0]) * (newY-ball_loc[1])/(newX-ball_loc[0]) + ball_loc[1];
-  if( estY > (p2B - g.ball_radius) && estY < (p2T + g.ball_radius) ){
-    //hit test paddle 2 from right
-    if( ball_loc[0] > (p2R + g.ball_radius) && newX <= (p2R + g.ball_radius) ){
-      ball_speed[0] = -ball_speed[0];
-      bounce(ball_speed, g);
-    }
-    //hit test paddle 2 from left
-    else if( ball_loc[0] < (p2L - g.ball_radius) && newX >= (p2L - g.ball_radius) ){
-      ball_speed[0] = -ball_speed[0] * g.pfactor;
-      bounce(ball_speed, g);
-    }
+  //hit paddle 2 from left
+  else if( (ball_loc[0] < p2L) && (newX >= p2L) && (pY2L < (p2T+br)) && (pY2L > (p2B-br)) ){
+    ball_speed[0] = -ball_speed[0];
+    bounce(ball_speed, g);
   }
-
-  //move ball to new location
+  //hit paddle 2 from right
+  else if( (ball_loc[0] > p2R) && (newX <= p2R) && (pY2R < (p2T+br)) && (pY2R > (p2B-br)) ){
+    ball_speed[0] = -ball_speed[0];
+    bounce(ball_speed, g);
+  }
+  //move the paddles
   ball_loc[0] += ball_speed[0];
   ball_loc[1] += ball_speed[1];
 }
@@ -172,17 +158,21 @@ void move_ball(float* ball_loc, float* ball_speed, float* paddle_loc, game_param
 //=================================================================
 //accelerates ball called by move_ball whenever ball hits something
 void bounce(float* ball_speed, game_parameters g){
-  //change ball speed by a random amount
-  //helping ball move more horizontally than vertically
-  ball_speed[0] *= g.bfactor;
-  float angle = (float)(rand() % 360) * (3.1416 / 180.0);
-  ball_speed[0] += g.yfactor * cos(angle);
-  ball_speed[1] += g.yfactor * sin(angle);
-  //bouncing accelerates ball
+  //change ball speed helping ball
+  //move more horizontally than vertically
+  float dx = (ball_speed[0] > 0)? g.ball_acceleration[0] : -g.ball_acceleration[0];
+  float dy = (ball_speed[1] > 0)? g.ball_acceleration[1] : -g.ball_acceleration[1];
+  ball_speed[0] += dx;
+  ball_speed[1] += dy;
+
+  //add a random component to the ball motion
+  ball_speed[0] += (float)(rand() % (int)(2000.0*g.ball_random))/1000.0 - g.ball_random;
+  ball_speed[1] += (float)(rand() % (int)(2000.0*g.ball_random))/1000.0 - g.ball_random;
+
+  //check the maximum speed
   float speed = (float)sqrt( pow(ball_speed[0],2) + pow(ball_speed[1],2) );
   float ballVecX = ball_speed[0] / speed;
   float ballVecY = ball_speed[1] / speed;
-  speed += g.ball_acceleration;
   if( speed > g.max_ball_speed )
     speed = g.max_ball_speed;
   ball_speed[0] = speed * ballVecX;
